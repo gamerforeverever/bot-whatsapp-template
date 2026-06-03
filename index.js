@@ -1,9 +1,5 @@
-const {
-    default: makeWASocket,
-    useMultiFileAuthState,
-    fetchLatestBaileysVersion,
-    DisconnectReason
-} = require("@whiskeysockets/baileys")
+const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys")
+const qrcode = require("qrcode-terminal")
 
 async function start() {
     const { state, saveCreds } = await useMultiFileAuthState("auth")
@@ -13,19 +9,21 @@ async function start() {
         version,
         auth: state,
         printQRInTerminal: false,
-        browser: ["Chrome", "Windows", "10"]
+        browser: ["Railway", "Chrome", "1.0.0"]
     })
 
     sock.ev.on("creds.update", saveCreds)
 
     sock.ev.on("connection.update", (update) => {
-        const { connection, lastDisconnect } = update
+        const { connection, qr } = update
 
-        // 📲 Pairing Code (falls unterstützt)
-        if (update.pairingCode) {
-            console.log("\n🔑 LOGIN CODE:")
-            console.log(update.pairingCode)
-            console.log("\n👉 WhatsApp → Verknüpfte Geräte → Mit Nummer verbinden")
+        // 📱 QR CODE FIX
+        if (qr) {
+            console.log("\n======================")
+            console.log("📱 SCAN QR CODE")
+            console.log("======================\n")
+
+            qrcode.generate(qr, { small: true })
         }
 
         if (connection === "open") {
@@ -33,12 +31,10 @@ async function start() {
         }
 
         if (connection === "close") {
-            const reason = lastDisconnect?.error?.output?.statusCode
-            console.log("❌ Verbindung getrennt:", reason)
+            console.log("❌ Verbindung getrennt")
         }
     })
 
-    // 💬 COMMAND SYSTEM
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const msg = messages[0]
         if (!msg.message) return
@@ -57,11 +53,10 @@ async function start() {
             const jokes = [
                 "😂 Warum können Geister nicht lügen?",
                 "😂 Ich bin nur ein Bot 😄",
-                "😂 Mathe ist Stress mit Zahlen"
+                "😂 Mathe ist auch nur Zahlen mit Stress"
             ]
-            await sock.sendMessage(jid, {
-                text: jokes[Math.floor(Math.random() * jokes.length)]
-            })
+            const pick = jokes[Math.floor(Math.random() * jokes.length)]
+            await sock.sendMessage(jid, { text: pick })
         }
 
         // 🎮 RPS
@@ -77,11 +72,11 @@ async function start() {
             await sock.sendMessage(jid, { text: "🎲 Ergebnis: " + roll })
         }
 
-        // 🤖 AI FAKE
+        // 🤖 AI (fake simple)
         if (cmd.startsWith(".ai ")) {
             const input = text.slice(4)
             await sock.sendMessage(jid, {
-                text: "🤖 Ich denke über: " + input
+                text: "🤖 Ich denke über nach: " + input
             })
         }
 
@@ -95,14 +90,6 @@ async function start() {
                     ".dice 🎲\n" +
                     ".ai text 🤖\n" +
                     ".help 📜"
-
-                process.on("uncaughtException", (err) => {
-  console.log("❌ Crash:", err);
-});
-
-process.on("unhandledRejection", (err) => {
-  console.log("❌ Promise Error:", err);
-});
             })
         }
     })
