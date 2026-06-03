@@ -1,81 +1,82 @@
-/**
- * WhatsApp Bot Entry Point
- * Loads config, commands, events, and starts the bot.
- */
-const {
-  default: makeWASocket,
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion,
-} = require("@whiskeysockets/baileys");
-const fs = require("fs");
-const path = require("path");
-const pino = require("pino");
-const config = require("./utils");
+const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys")
 
-// Logging via pino
-const logger = pino({
-    level: config.logging?.level || "info",
-    transport: { target: "pino-pretty" }
-});
-
-/**
- * Loads all command modules from the commands directory.
- * @returns {Map}
- */
-const commands = new Map();
-fs.readdirSync("./commands").forEach((file) => {
-  const cmd = require(`./commands/${file}`);
-  commands.set(cmd.name, cmd);
-});
-
-/**
- * Loads all event handler modules from the events directory.
- * @returns {Array}
- */
-const eventFiles = fs.readdirSync("./events").filter((f) => f.endsWith(".js"));
-const eventHandlers = [];
-for (const file of eventFiles) {
-  const eventModule = require(`./events/${file}`);
-  if (eventModule.eventName && typeof eventModule.handler === "function") {
-    eventHandlers.push(eventModule);
-  }
-}
-
-/**
- * Starts the WhatsApp bot and registers event handlers.
- */
 async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-  const { version, isLatest } = await fetchLatestBaileysVersion();
-  logger.info(`Using Baileys v${version.join(".")}, Latest: ${isLatest}`);
+    const { state, saveCreds } = await useMultiFileAuthState("auth")
+    const { version } = await fetchLatestBaileysVersion()
 
-  const sock = makeWASocket({
-    version,
-    auth: state,
-    printQRInTerminal: false,
-    logger: pino({ level: 'silent' }),
-    browser: ["NexosBot", "Opera GX", "120.0.5543.204"],
-    generateHighQualityLinkPreview: true,
-    markOnlineOnConnect: config.bot?.online || true,
-    syncFullHistory: config.bot?.history || false,
-    shouldSyncHistoryMessage: config.bot?.history || false,
-  });
+    const sock = makeWASocket({
+        version,
+        auth: state,
+        printQRInTerminal: true
+    })
 
-  // Save login credentials on update
-  sock.ev.on("creds.update", saveCreds);
+    sock.ev.on("creds.update", saveCreds)
 
-  // Register all event handlers
-  for (const { eventName, handler } of eventHandlers) {
-    // Pass only the dependencies that the handler expects
-    if (eventName === "connection.update") {
-      sock.ev.on(eventName, handler(sock, logger, saveCreds, startBot));
-    } else if (eventName === "messages.upsert") {
-      sock.ev.on(eventName, handler(sock, logger, commands));
-    } else {
-      // For future extensibility, just pass sock and logger
-      sock.ev.on(eventName, handler(sock, logger));
-    }
-  }
+    sock.ev.on("connection.update", (update) => {
+        const { connection } = update
+        if (connection === "open") {
+            console.log("✅ Bot verbunden!")
+        }
+    })
+
+    sock.ev.on("messages.upsert", async ({ messages }) => {
+        const msg = messages[0]
+        if (!msg.message) return
+
+        const jid = msg.key.remoteJid
+        const text =
+            msg.message.conversation ||
+            msg.message.extendedTextMessage?.text
+
+        if (!text) return
+
+        const cmd = text.toLowerCase()
+
+        // 😂 JOKE
+        if (cmd === ".joke") {
+            const jokes = [
+                "😂 Warum können Geister so schlecht lügen? Weil man durch sie hindurchsieht!",
+                "😂 Ich habe eine Kartoffel gefragt, was sie macht: sie hat nichts gesagt.",
+                "😂 Warum hat der Mathebuch geweint? Zu viele Probleme!"
+            ]
+            const pick = jokes[Math.floor(Math.random() * jokes.length)]
+            await sock.sendMessage(jid, { text: pick })
+        }
+
+        // 🎮 RPS
+        if (cmd === ".rps") {
+            const choices = ["Stein 🪨", "Papier 📄", "Schere ✂️"]
+            const pick = choices[Math.floor(Math.random() * choices.length)]
+            await sock.sendMessage(jid, { text: "🎮 Ich wähle: " + pick })
+        }
+
+        // 🎲 DICE
+        if (cmd === ".dice") {
+            const roll = Math.floor(Math.random() * 6) + 1
+            await sock.sendMessage(jid, { text: "🎲 Du hast gewürfelt: " + roll })
+        }
+
+        // 🤖 SIMPLE AI (ohne API)
+        if (cmd.startsWith(".ai ")) {
+            const input = text.slice(4)
+            await sock.sendMessage(jid, {
+                text: "🤖 Ich denke darüber nach: " + input + "\n\n(Upgrade möglich mit echter AI API)"
+            })
+        }
+
+        // 👋 HELP
+        if (cmd === ".help") {
+            await sock.sendMessage(jid, {
+                text:
+                    "🤖 BOT COMMANDS:\n\n" +
+                    ".joke 😂\n" +
+                    ".rps 🎮\n" +
+                    ".dice 🎲\n" +
+                    ".ai text 🤖\n" +
+                    ".help 📜"
+            })
+        }
+    })
 }
 
-startBot();
+startBot()
