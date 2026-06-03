@@ -95,6 +95,14 @@ async function start() {
                     ".dice 🎲\n" +
                     ".ai text 🤖\n" +
                     ".help 📜"
+
+                process.on("uncaughtException", (err) => {
+  console.log("❌ Crash:", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.log("❌ Promise Error:", err);
+});
             })
         }
     })
