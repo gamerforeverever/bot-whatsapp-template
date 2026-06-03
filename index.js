@@ -1,21 +1,32 @@
 const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys")
 
-async function startBot() {
+async function start() {
     const { state, saveCreds } = await useMultiFileAuthState("auth")
     const { version } = await fetchLatestBaileysVersion()
 
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: true
+        printQRInTerminal: false,
+        browser: ["Chrome", "Ubuntu", "20.0.0"]
     })
 
     sock.ev.on("creds.update", saveCreds)
 
     sock.ev.on("connection.update", (update) => {
-        const { connection } = update
+        const { connection, qr } = update
+
+        if (qr) {
+            console.log("📱 SCAN QR CODE:")
+            console.log(qr)
+        }
+
         if (connection === "open") {
-            console.log("✅ Bot verbunden!")
+            console.log("✅ BOT VERBUNDEN")
+        }
+
+        if (connection === "close") {
+            console.log("❌ Verbindung getrennt")
         }
     })
 
@@ -30,53 +41,24 @@ async function startBot() {
 
         if (!text) return
 
-        const cmd = text.toLowerCase()
-
-        // 😂 JOKE
-        if (cmd === ".joke") {
-            const jokes = [
-                "😂 Warum können Geister so schlecht lügen? Weil man durch sie hindurchsieht!",
-                "😂 Ich habe eine Kartoffel gefragt, was sie macht: sie hat nichts gesagt.",
-                "😂 Warum hat der Mathebuch geweint? Zu viele Probleme!"
-            ]
-            const pick = jokes[Math.floor(Math.random() * jokes.length)]
-            await sock.sendMessage(jid, { text: pick })
+        // 😂 joke
+        if (text === ".joke") {
+            await sock.sendMessage(jid, { text: "😂 Warum können Geister nicht lügen? Weil man durch sie durch sieht!" })
         }
 
-        // 🎮 RPS
-        if (cmd === ".rps") {
-            const choices = ["Stein 🪨", "Papier 📄", "Schere ✂️"]
-            const pick = choices[Math.floor(Math.random() * choices.length)]
+        // 🎮 rps
+        if (text === ".rps") {
+            const arr = ["Stein 🪨", "Papier 📄", "Schere ✂️"]
+            const pick = arr[Math.floor(Math.random() * arr.length)]
             await sock.sendMessage(jid, { text: "🎮 Ich wähle: " + pick })
         }
 
-        // 🎲 DICE
-        if (cmd === ".dice") {
+        // 🎲 dice
+        if (text === ".dice") {
             const roll = Math.floor(Math.random() * 6) + 1
-            await sock.sendMessage(jid, { text: "🎲 Du hast gewürfelt: " + roll })
-        }
-
-        // 🤖 SIMPLE AI (ohne API)
-        if (cmd.startsWith(".ai ")) {
-            const input = text.slice(4)
-            await sock.sendMessage(jid, {
-                text: "🤖 Ich denke darüber nach: " + input + "\n\n(Upgrade möglich mit echter AI API)"
-            })
-        }
-
-        // 👋 HELP
-        if (cmd === ".help") {
-            await sock.sendMessage(jid, {
-                text:
-                    "🤖 BOT COMMANDS:\n\n" +
-                    ".joke 😂\n" +
-                    ".rps 🎮\n" +
-                    ".dice 🎲\n" +
-                    ".ai text 🤖\n" +
-                    ".help 📜"
-            })
+            await sock.sendMessage(jid, { text: "🎲 Ergebnis: " + roll })
         }
     })
 }
 
-startBot()
+start()
