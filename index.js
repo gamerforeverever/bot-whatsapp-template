@@ -1,5 +1,9 @@
-const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys")
-const qrcode = require("qrcode-terminal")
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    fetchLatestBaileysVersion,
+    DisconnectReason
+} = require("@whiskeysockets/baileys")
 
 async function start() {
     const { state, saveCreds } = await useMultiFileAuthState("auth")
@@ -9,21 +13,19 @@ async function start() {
         version,
         auth: state,
         printQRInTerminal: false,
-        browser: ["Railway", "Chrome", "1.0.0"]
+        browser: ["Chrome", "Windows", "10"]
     })
 
     sock.ev.on("creds.update", saveCreds)
 
     sock.ev.on("connection.update", (update) => {
-        const { connection, qr } = update
+        const { connection, lastDisconnect } = update
 
-        // 📱 QR CODE FIX
-        if (qr) {
-            console.log("\n======================")
-            console.log("📱 SCAN QR CODE")
-            console.log("======================\n")
-
-            qrcode.generate(qr, { small: true })
+        // 📲 Pairing Code (falls unterstützt)
+        if (update.pairingCode) {
+            console.log("\n🔑 LOGIN CODE:")
+            console.log(update.pairingCode)
+            console.log("\n👉 WhatsApp → Verknüpfte Geräte → Mit Nummer verbinden")
         }
 
         if (connection === "open") {
@@ -31,10 +33,12 @@ async function start() {
         }
 
         if (connection === "close") {
-            console.log("❌ Verbindung getrennt")
+            const reason = lastDisconnect?.error?.output?.statusCode
+            console.log("❌ Verbindung getrennt:", reason)
         }
     })
 
+    // 💬 COMMAND SYSTEM
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const msg = messages[0]
         if (!msg.message) return
@@ -53,10 +57,11 @@ async function start() {
             const jokes = [
                 "😂 Warum können Geister nicht lügen?",
                 "😂 Ich bin nur ein Bot 😄",
-                "😂 Mathe ist auch nur Zahlen mit Stress"
+                "😂 Mathe ist Stress mit Zahlen"
             ]
-            const pick = jokes[Math.floor(Math.random() * jokes.length)]
-            await sock.sendMessage(jid, { text: pick })
+            await sock.sendMessage(jid, {
+                text: jokes[Math.floor(Math.random() * jokes.length)]
+            })
         }
 
         // 🎮 RPS
@@ -72,11 +77,11 @@ async function start() {
             await sock.sendMessage(jid, { text: "🎲 Ergebnis: " + roll })
         }
 
-        // 🤖 AI (fake simple)
+        // 🤖 AI FAKE
         if (cmd.startsWith(".ai ")) {
             const input = text.slice(4)
             await sock.sendMessage(jid, {
-                text: "🤖 Ich denke über nach: " + input
+                text: "🤖 Ich denke über: " + input
             })
         }
 
