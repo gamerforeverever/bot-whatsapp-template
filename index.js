@@ -1,5 +1,8 @@
-const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys")
-const qrcode = require("qrcode-terminal")
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    fetchLatestBaileysVersion
+} = require("@whiskeysockets/baileys")
 
 async function start() {
     const { state, saveCreds } = await useMultiFileAuthState("auth")
@@ -8,30 +11,34 @@ async function start() {
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false,
         browser: ["Railway", "Chrome", "1.0.0"]
     })
 
     sock.ev.on("creds.update", saveCreds)
 
-    sock.ev.on("connection.update", (update) => {
-        const { connection, qr } = update
+    const phoneNumber = "491515684981" // DEINE NUMMER OHNE +
 
-        // 📱 QR CODE FIX
-        if (qr) {
-            console.log("\n======================")
-            console.log("📱 SCAN QR CODE")
-            console.log("======================\n")
+    try {
+        if (!sock.authState.creds.registered) {
+            const code = await sock.requestPairingCode(phoneNumber)
 
-            qrcode.generate(qr, { small: true })
+            console.log("\n====================")
+            console.log("PAIRING CODE:")
+            console.log(code)
+            console.log("====================\n")
         }
+    } catch (err) {
+        console.log("Pairing Fehler:", err)
+    }
 
+    sock.ev.on("connection.update", ({ connection }) => {
         if (connection === "open") {
             console.log("✅ BOT VERBUNDEN")
         }
 
         if (connection === "close") {
-            console.log("❌ Verbindung getrennt")
+            console.log("❌ Verbindung getrennt - Neustart...")
+            setTimeout(() => start(), 5000)
         }
     })
 
@@ -40,6 +47,7 @@ async function start() {
         if (!msg.message) return
 
         const jid = msg.key.remoteJid
+
         const text =
             msg.message.conversation ||
             msg.message.extendedTextMessage?.text
@@ -48,39 +56,46 @@ async function start() {
 
         const cmd = text.toLowerCase()
 
-        // 😂 JOKE
         if (cmd === ".joke") {
             const jokes = [
                 "😂 Warum können Geister nicht lügen?",
                 "😂 Ich bin nur ein Bot 😄",
                 "😂 Mathe ist auch nur Zahlen mit Stress"
             ]
+
             const pick = jokes[Math.floor(Math.random() * jokes.length)]
-            await sock.sendMessage(jid, { text: pick })
+
+            await sock.sendMessage(jid, {
+                text: pick
+            })
         }
 
-        // 🎮 RPS
         if (cmd === ".rps") {
             const arr = ["Stein 🪨", "Papier 📄", "Schere ✂️"]
+
             const pick = arr[Math.floor(Math.random() * arr.length)]
-            await sock.sendMessage(jid, { text: "🎮 Ich wähle: " + pick })
+
+            await sock.sendMessage(jid, {
+                text: "🎮 Ich wähle: " + pick
+            })
         }
 
-        // 🎲 DICE
         if (cmd === ".dice") {
             const roll = Math.floor(Math.random() * 6) + 1
-            await sock.sendMessage(jid, { text: "🎲 Ergebnis: " + roll })
+
+            await sock.sendMessage(jid, {
+                text: "🎲 Ergebnis: " + roll
+            })
         }
 
-        // 🤖 AI (fake simple)
         if (cmd.startsWith(".ai ")) {
             const input = text.slice(4)
+
             await sock.sendMessage(jid, {
                 text: "🤖 Ich denke über nach: " + input
             })
         }
 
-        // 📜 HELP
         if (cmd === ".help") {
             await sock.sendMessage(jid, {
                 text:
