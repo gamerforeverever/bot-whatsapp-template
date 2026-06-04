@@ -16,29 +16,39 @@ async function start() {
 
     sock.ev.on("creds.update", saveCreds)
 
-    const phoneNumber = "491515684981" // DEINE NUMMER OHNE +
+    const phoneNumber = "491515684981"
+    let codeRequested = false
 
-    try {
-        if (!sock.authState.creds.registered) {
-            const code = await sock.requestPairingCode(phoneNumber)
+    sock.ev.on("connection.update", async (update) => {
+        const { connection } = update
 
-            console.log("\n====================")
-            console.log("PAIRING CODE:")
-            console.log(code)
-            console.log("====================\n")
+        if (
+            connection === "connecting" &&
+            !sock.authState.creds.registered &&
+            !codeRequested
+        ) {
+            codeRequested = true
+
+            try {
+                const code = await sock.requestPairingCode(phoneNumber)
+
+                console.log("")
+                console.log("====================")
+                console.log("PAIRING CODE:")
+                console.log(code)
+                console.log("====================")
+                console.log("")
+            } catch (err) {
+                console.log("Pairing Fehler:", err)
+            }
         }
-    } catch (err) {
-        console.log("Pairing Fehler:", err)
-    }
 
-    sock.ev.on("connection.update", ({ connection }) => {
         if (connection === "open") {
             console.log("✅ BOT VERBUNDEN")
         }
 
         if (connection === "close") {
-            console.log("❌ Verbindung getrennt - Neustart...")
-            setTimeout(() => start(), 5000)
+            console.log("❌ Verbindung getrennt")
         }
     })
 
