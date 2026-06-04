@@ -1,3 +1,5 @@
+console.log("BOT STARTET...")
+
 const {
     default: makeWASocket,
     useMultiFileAuthState,
